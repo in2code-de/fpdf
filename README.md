@@ -1,16 +1,17 @@
 # TYPO3 Extension "fpdf"
 FPDF Library (www.fpdf.org) ported to TYPO3. Also includes the FPDI library (fpdi.setasign.de) which allows you to use PDF templates when creating your own PDF files.
 
-## Version 0.1.1
+## Version 0.1.2
 
 
 
 
 <table>
-	<tr><td>Version</td><td>0.1.1 stable</td></tr>
-	<tr><td>Release date</td><td>22. May 2007</td></tr>
+	<tr><td>Version</td><td>0.1.2 stable</td></tr>
+	<tr><td>Release date</td><td>22. June 2007</td></tr>
 	<tr><td>Author</td><td>David Bruehlmeier</td></tr>
-	<tr><td>Comment</td><td>Updated FPDI to version 1.2</td></tr>
+	<tr><td>Comment</td><td> Updated to the proper version of fpdf_tpl.php
+ Included unit tests</td></tr>
 </table>
 
 ## !! Attention !!
