@@ -3,7 +3,7 @@
 /***************************************************************
  * Extension Manager/Repository config file for ext "fpdf".
  *
- * Auto generated 25-10-2013 07:41
+ * Auto generated 25-10-2013 07:42
  *
  * Manual updates:
  * Only the data in the array - everything else is removed by next
@@ -15,7 +15,7 @@ $EM_CONF[$_EXTKEY] = array (
 	'description' => 'FPDF Library (www.fpdf.org) ported to TYPO3. Also includes the FPDI library (fpdi.setasign.de) which allows you to use PDF templates when creating your own PDF files.',
 	'category' => 'misc',
 	'shy' => 0,
-	'version' => '0.2.0',
+	'version' => '0.2.1',
 	'dependencies' => '',
 	'conflicts' => '',
 	'priority' => '',
