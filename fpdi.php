@@ -1,8 +1,8 @@
 <?php
 //
-//  FPDI - Version 1.1
+//  FPDI - Version 1.2
 //
-//    Copyright 2004,2005 Setasign - Jan Slabon
+//    Copyright 2004-2007 Setasign - Jan Slabon
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -17,17 +17,7 @@
 //  limitations under the License.
 //
 
-define ('PDF_TYPE_NULL', 0);
-define ('PDF_TYPE_NUMERIC', 1);
-define ('PDF_TYPE_TOKEN', 2);
-define ('PDF_TYPE_HEX', 3);
-define ('PDF_TYPE_STRING', 4);
-define ('PDF_TYPE_DICTIONARY', 5);
-define ('PDF_TYPE_ARRAY', 6);
-define ('PDF_TYPE_OBJDEC', 7);
-define ('PDF_TYPE_OBJREF', 8);
-define ('PDF_TYPE_OBJECT', 9);
-define ('PDF_TYPE_STREAM', 10);
+define('FPDI_VERSION','1.2');
 
 ini_set('auto_detect_line_endings',1); // Strongly required!
 
@@ -35,7 +25,7 @@ require_once("fpdf_tpl.php");
 require_once("fpdi_pdf_parser.php");
 
 
-class fpdi extends fpdf_tpl {
+class FPDI extends FPDF_TPL {
     /**
      * Actual filename
      * @var string
@@ -55,12 +45,6 @@ class fpdi extends fpdf_tpl {
     var $current_parser;
     
     /**
-     * FPDF/FPDI - PDF-Version
-     * @var double
-     */
-    var $PDFVersion = 1.3;
-
-    /**
      * Highest version of imported PDF
      * @var double
      */
@@ -70,26 +54,32 @@ class fpdi extends fpdf_tpl {
      * object stack
      * @var array
      */
-    var $obj_stack;
+    var $_obj_stack;
     
     /**
      * done object stack
      * @var array
      */
-    var $don_obj_stack;
+    var $_don_obj_stack;
 
     /**
      * Current Object Id.
      * @var integer
      */
-    var $current_obj_id;
+    var $_current_obj_id;
+    
+    /**
+     * The name of the last imported page box
+     * @var string
+     */
+    var $lastUsedPageBox;
     
     /**
      * Constructor
      * See FPDF-Manual
      */
-    function fpdi($orientation='P',$unit='mm',$format='A4') {
-        parent::fpdf_tpl($orientation,$unit,$format);
+    function FPDI($orientation='P',$unit='mm',$format='A4') {
+        parent::FPDF_TPL($orientation,$unit,$format);
     }
     
     /**
@@ -102,7 +92,8 @@ class fpdi extends fpdf_tpl {
         $this->current_filename = $filename;
         $fn =& $this->current_filename;
 
-        $this->parsers[$fn] = new fpdi_pdf_parser($fn,$this);
+        if (!isset($this->parsers[$fn]))
+            $this->parsers[$fn] =& new fpdi_pdf_parser($fn,$this);
         $this->current_parser =& $this->parsers[$fn];
         
         return $this->parsers[$fn]->getPageCount();
@@ -114,37 +105,109 @@ class fpdi extends fpdf_tpl {
      * @param int $pageno pagenumber
      * @return int Index of imported page - to use with fpdf_tpl::useTemplate()
      */
-    function ImportPage($pageno) {
+    function importPage($pageno, $boxName='/CropBox') {
+        if ($this->_intpl) {
+            return $this->error("Please import the desired pages before creating a new template.");
+        }
+        
         $fn =& $this->current_filename;
         
-        $this->parsers[$fn]->setPageno($pageno);
+        $parser =& $this->parsers[$fn];
+        $parser->setPageno($pageno);
 
         $this->tpl++;
         $this->tpls[$this->tpl] = array();
-        $this->tpls[$this->tpl]['parser'] =& $this->parsers[$fn];
-        $this->tpls[$this->tpl]['resources'] = $this->parsers[$fn]->getPageResources();
-        $this->tpls[$this->tpl]['buffer'] = $this->parsers[$fn]->getContent();
-        // $mediabox holds the dimensions of the source page
-        $mediabox = $this->parsers[$fn]->getPageMediaBox($pageno);
+        $tpl =& $this->tpls[$this->tpl];
+        $tpl['parser'] =& $parser;
+        $tpl['resources'] = $parser->getPageResources();
+        $tpl['buffer'] = $parser->getContent();
         
-        // To build array that can used by pdf_tpl::useTemplate()
-        $this->tpls[$this->tpl] = array_merge($this->tpls[$this->tpl],$mediabox);
-
+        if (!in_array($boxName, $parser->availableBoxes))
+            return $this->Error(sprintf("Unknown box: %s", $boxName));
+        $pageboxes = $parser->getPageBoxes($pageno);
+        
+        /**
+         * MediaBox
+         * CropBox: Default -> MediaBox
+         * BleedBox: Default -> CropBox
+         * TrimBox: Default -> CropBox
+         * ArtBox: Default -> CropBox
+         */
+        if (!isset($pageboxes[$boxName]) && ($boxName == "/BleedBox" || $boxName == "/TrimBox" || $boxName == "/ArtBox"))
+            $boxName = "/CropBox";
+        if (!isset($pageboxes[$boxName]) && $boxName == "/CropBox")
+            $boxName = "/MediaBox";
+        
+        if (!isset($pageboxes[$boxName]))
+            return false;
+        $this->lastUsedPageBox = $boxName;
+        
+        $box = $pageboxes[$boxName];
+        $tpl['box'] = $box;
+        
+        // To build an array that can be used by PDF_TPL::useTemplate()
+        $this->tpls[$this->tpl] = array_merge($this->tpls[$this->tpl],$box);
+        // An imported page will start at 0,0 everytime. Translation will be set in _putformxobjects()
+        $tpl['x'] = 0;
+        $tpl['y'] = 0;
+        
+        $page =& $parser->pages[$parser->pageno];
+        
+        // fix for rotated pages
+        $rotation = $parser->getPageRotation($pageno);
+        if (isset($rotation[1]) && ($angle = $rotation[1] % 360) != 0) {
+            $steps = $angle / 90;
+                
+            $_w = $tpl['w'];
+            $_h = $tpl['h'];
+            $tpl['w'] = $steps % 2 == 0 ? $_w : $_h;
+            $tpl['h'] = $steps % 2 == 0 ? $_h : $_w;
+            
+            if ($steps % 2 != 0) {
+                $x = $y = ($steps == 1 || $steps == -3) ? $tpl['h'] : $tpl['w'];
+            } else {
+                $x = $tpl['w'];
+                $y = $tpl['h'];
+            }
+            
+            $cx=($x/2+$tpl['box']['x'])*$this->k;
+            $cy=($y/2+$tpl['box']['y'])*$this->k;
+            
+            $angle*=-1; 
+            
+            $angle*=M_PI/180;
+            $c=cos($angle);
+            $s=sin($angle);
+            
+            $tpl['buffer'] = sprintf('q %.5f %.5f %.5f %.5f %.2f %.2f cm 1 0 0 1 %.2f %.2f cm %s Q',$c,$s,-$s,$c,$cx,$cy,-$cx,-$cy, $tpl['buffer']);
+        }
+        
         return $this->tpl;
+    }
+    
+    function getLastUsedPageBox() {
+        return $this->lastUsedPageBox;
+    }
+    
+    function useTemplate($tplidx, $_x=null, $_y=null, $_w=0, $_h=0) {
+        $this->_out('q 0 J 1 w 0 j 0 G'); // reset standard values
+        $s = parent::useTemplate($tplidx, $_x, $_y, $_w, $_h);
+        $this->_out('Q');
+        return $s;
     }
     
     /**
      * Private method, that rebuilds all needed objects of source files
      */
-    function _putOobjects() {
+    function _putimportedobjects() {
         if (is_array($this->parsers) && count($this->parsers) > 0) {
             foreach($this->parsers AS $filename => $p) {
                 $this->current_parser =& $this->parsers[$filename];
-                if (is_array($this->obj_stack[$filename])) {
-                    while($n = key($this->obj_stack[$filename])) {
-                        $nObj = $this->current_parser->pdf_resolve_object($this->current_parser->c,$this->obj_stack[$filename][$n][1]);
+                if (is_array($this->_obj_stack[$filename])) {
+                    while($n = key($this->_obj_stack[$filename])) {
+                        $nObj = $this->current_parser->pdf_resolve_object($this->current_parser->c,$this->_obj_stack[$filename][$n][1]);
 						
-                        $this->_newobj($this->obj_stack[$filename][$n][0]);
+                        $this->_newobj($this->_obj_stack[$filename][$n][0]);
                         
                         if ($nObj[0] == PDF_TYPE_STREAM) {
 							$this->pdf_write_value ($nObj);
@@ -153,9 +216,9 @@ class fpdi extends fpdf_tpl {
                         }
                         
                         $this->_out('endobj');
-                        $this->obj_stack[$filename][$n] = null; // free memory
-                        unset($this->obj_stack[$filename][$n]);
-                        reset($this->obj_stack[$filename]);
+                        $this->_obj_stack[$filename][$n] = null; // free memory
+                        unset($this->_obj_stack[$filename][$n]);
+                        reset($this->_obj_stack[$filename]);
                     }
                 }
             }
@@ -163,34 +226,11 @@ class fpdi extends fpdf_tpl {
     }
     
     /**
-     * Rewritten for handling own defined PDF-Versions
-     * only needed by FPDF 1.52
-     */
-    function _begindoc() {
-    	//Start document
-    	$this->state=1;
-    }
-    
-    /**
      * Sets the PDF Version to the highest of imported documents
      */
     function setVersion() {
-        if ($this->importVersion > $this->PDFVersion)
-            $this->PDFVersion = $this->importVersion;
-
-        if (!method_exists($this, '_putheader')) {
-            $this->buffer = '%PDF-'.$this->PDFVersion."\n".$this->buffer;
-		}
+        $this->PDFVersion = max($this->importVersion, $this->PDFVersion);
     }
-    
-    /**
-     * rewritten for handling higher PDF Versions
-     */
-    function _enddoc() {
-        $this->setVersion();
-        parent::_enddoc();
-    }
-
     
     /**
      * Put resources
@@ -198,71 +238,64 @@ class fpdi extends fpdf_tpl {
     function _putresources() {
         $this->_putfonts();
     	$this->_putimages();
-        $this->_puttemplates();
-        $this->_putOobjects();
-        
+    	$this->_putformxobjects();
+        $this->_putimportedobjects();
         //Resource dictionary
     	$this->offsets[2]=strlen($this->buffer);
     	$this->_out('2 0 obj');
-    	$this->_out('<</ProcSet [/PDF /Text /ImageB /ImageC /ImageI]');
-    	$this->_out('/Font <<');
-        foreach($this->fonts as $font)
-        	$this->_out($this->fontprefix.$font['i'].' '.$font['n'].' 0 R');
-    	$this->_out('>>');
-    	if(count($this->images) || count($this->tpls))
-    	{
-    		$this->_out('/XObject <<');
-            if (count($this->images)) {
-                foreach($this->images as $image)
-        			$this->_out('/I'.$image['i'].' '.$image['n'].' 0 R');
-            }
-            if (count($this->tpls)) {
-                foreach($this->tpls as $tplidx => $tpl)
-        			$this->_out($this->tplprefix.$tplidx.' '.$tpl['n'].' 0 R');
-            }
-            $this->_out('>>');
-    	}
+    	$this->_out('<<');
+    	$this->_putresourcedict();
     	$this->_out('>>');
     	$this->_out('endobj');
     }
-
+    
     /**
-     * Private Method that writes /XObjects - "Templates"
+     * Private Method that writes the form xobjects
      */
-    function _puttemplates() {
+    function _putformxobjects() {
         $filter=($this->compress) ? '/Filter /FlateDecode ' : '';
 	    reset($this->tpls);
         foreach($this->tpls AS $tplidx => $tpl) {
-
             $p=($this->compress) ? gzcompress($tpl['buffer']) : $tpl['buffer'];
     		$this->_newobj();
     		$this->tpls[$tplidx]['n'] = $this->n;
     		$this->_out('<<'.$filter.'/Type /XObject');
             $this->_out('/Subtype /Form');
             $this->_out('/FormType 1');
-            $this->_out(sprintf('/BBox [%.2f %.2f %.2f %.2f]',$tpl['x']*$this->k, ($tpl['h']-$tpl['y'])*$this->k, $tpl['w']*$this->k, ($tpl['h']-$tpl['y']-$tpl['h'])*$this->k));
+            
+            $this->_out(sprintf('/BBox [%.2f %.2f %.2f %.2f]',
+                ($tpl['x'] + (isset($tpl['box']['x'])?$tpl['box']['x']:0))*$this->k,
+                ($tpl['h'] + (isset($tpl['box']['y'])?$tpl['box']['y']:0) - $tpl['y'])*$this->k,
+                ($tpl['w'] + (isset($tpl['box']['x'])?$tpl['box']['x']:0))*$this->k,
+                ($tpl['h'] + (isset($tpl['box']['y'])?$tpl['box']['y']:0) - $tpl['y']-$tpl['h'])*$this->k)
+            );
+            
+            if (isset($tpl['box']))
+                $this->_out(sprintf('/Matrix [1 0 0 1 %.5f %.5f]',-$tpl['box']['x']*$this->k, -$tpl['box']['y']*$this->k));
+            
             $this->_out('/Resources ');
 
-            if ($tpl['resources']) {
+            if (isset($tpl['resources'])) {
                 $this->current_parser =& $tpl['parser'];
                 $this->pdf_write_value($tpl['resources']);
             } else {
                 $this->_out('<</ProcSet [/PDF /Text /ImageB /ImageC /ImageI]');
-            	if (count($this->res['tpl'][$tplidx]['fonts'])) {
+            	if (isset($this->_res['tpl'][$tplidx]['fonts']) && count($this->_res['tpl'][$tplidx]['fonts'])) {
                 	$this->_out('/Font <<');
-                    foreach($this->res['tpl'][$tplidx]['fonts'] as $font)
-                		$this->_out($this->fontprefix.$font['i'].' '.$font['n'].' 0 R');
+                    foreach($this->_res['tpl'][$tplidx]['fonts'] as $font)
+                		$this->_out('/F'.$font['i'].' '.$font['n'].' 0 R');
                 	$this->_out('>>');
                 }
-            	if(count($this->res['tpl'][$tplidx]['images']) || count($this->res['tpl'][$tplidx]['tpls']))
+            	if(isset($this->_res['tpl'][$tplidx]['images']) && count($this->_res['tpl'][$tplidx]['images']) || 
+            	   isset($this->_res['tpl'][$tplidx]['tpls']) && count($this->_res['tpl'][$tplidx]['tpls']))
             	{
                     $this->_out('/XObject <<');
-                    if (count($this->res['tpl'][$tplidx]['images'])) {
-                        foreach($this->res['tpl'][$tplidx]['images'] as $image)
+                    if (isset($this->_res['tpl'][$tplidx]['images']) && count($this->_res['tpl'][$tplidx]['images'])) {
+                        foreach($this->_res['tpl'][$tplidx]['images'] as $image)
                   			$this->_out('/I'.$image['i'].' '.$image['n'].' 0 R');
                     }
-                    if (count($this->res['tpl'][$tplidx]['tpls'])) {
-                        foreach($this->res['tpl'][$tplidx]['tpls'] as $i => $tpl)
+                    if (isset($this->_res['tpl'][$tplidx]['tpls']) && count($this->_res['tpl'][$tplidx]['tpls'])) {
+                        foreach($this->_res['tpl'][$tplidx]['tpls'] as $i => $tpl)
                             $this->_out($this->tplprefix.$i.' '.$tpl['n'].' 0 R');
                     }
                     $this->_out('>>');
@@ -286,9 +319,9 @@ class fpdi extends fpdf_tpl {
 
     	//Begin a new object
         if (!$onlynewobj) {
-            $this->offsets[$obj_id]=strlen($this->buffer);
+            $this->offsets[$obj_id] = strlen($this->buffer);
             $this->_out($obj_id.' 0 obj');
-            $this->current_obj_id = $obj_id; // for later use with encryption
+            $this->_current_obj_id = $obj_id; // for later use with encryption
         }
         
     }
@@ -308,7 +341,7 @@ class fpdi extends fpdf_tpl {
     		case PDF_TYPE_TOKEN :
                 // A numeric value or a token.
     			// Simply output them
-                $this->_out($value[1]." ");
+                $this->_out($value[1]." ", false);
     			break;
 
     		case PDF_TYPE_ARRAY :
@@ -343,12 +376,13 @@ class fpdi extends fpdf_tpl {
 
     			// An indirect object reference
     			// Fill the object stack if needed
-    			if (!isset($this->don_obj_stack[$this->current_parser->filename][$value[1]])) {
+    			$cpfn =& $this->current_parser->filename;
+    			if (!isset($this->_don_obj_stack[$cpfn][$value[1]])) {
                     $this->_newobj(false,true);
-                    $this->obj_stack[$this->current_parser->filename][$value[1]] = array($this->n,$value);
-                    $this->don_obj_stack[$this->current_parser->filename][$value[1]] = array($this->n,$value);
+                    $this->_obj_stack[$cpfn][$value[1]] = array($this->n, $value);
+                    $this->_don_obj_stack[$cpfn][$value[1]] = array($this->n, $value);
                 }
-                $objid = $this->don_obj_stack[$this->current_parser->filename][$value[1]][0];
+                $objid = $this->_don_obj_stack[$cpfn][$value[1]][0];
 
     			$this->_out("{$objid} 0 R"); //{$value[2]}
     			break;
@@ -356,7 +390,7 @@ class fpdi extends fpdf_tpl {
     		case PDF_TYPE_STRING :
 
     			// A string.
-                $this->_out('(' . $value[1] . ')');
+                $this->_out('('.$value[1].')');
 
     			break;
 
@@ -372,7 +406,7 @@ class fpdi extends fpdf_tpl {
     			break;
             case PDF_TYPE_HEX :
             
-                $this->_out("<" . $value[1] . ">");
+                $this->_out("<".$value[1].">");
                 break;
 
     		case PDF_TYPE_NULL :
@@ -390,8 +424,8 @@ class fpdi extends fpdf_tpl {
     function _out($s,$ln=true) {
 	   //Add a line to the document
 	   if ($this->state==2) {
-           if (!$this->intpl)
-	           $this->pages[$this->page].=$s.($ln == true ? "\n" : '');
+           if (!$this->_intpl)
+	           $this->pages[$this->page] .= $s.($ln == true ? "\n" : '');
            else
                $this->tpls[$this->tpl]['buffer'] .= $s.($ln == true ? "\n" : '');
        } else {
@@ -400,14 +434,33 @@ class fpdi extends fpdf_tpl {
     }
 
     /**
+     * rewritten to close opened parsers
+     *
+     */
+    function _enddoc() {
+        parent::_enddoc();
+        $this->_closeParsers();
+    }
+    
+    /**
      * close all files opened by parsers
      */
-    function closeParsers() {
-      	foreach ($this->parsers as $parser){
-        	$parser->closeFile();
+    function _closeParsers() {
+        if ($this->state > 2 && count($this->parsers) > 0) {
+          	foreach ($this->parsers as $k => $_){
+            	$this->parsers[$k]->closeFile();
+            	$this->parsers[$k] = null;
+            	unset($this->parsers[$k]);
+            }
+            return true;
         }
+        return false;
     }
 
 }
 
+// for PHP5
+if (!class_exists('fpdi')) {
+    class fpdi extends FPDI {}
+}
 ?>
