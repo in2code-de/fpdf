@@ -1,8 +1,8 @@
 <?php
 //
-//  FPDI - Version 1.01
+//  FPDI - Version 1.1
 //
-//    Copyright 2004 Setasign - Jan Slabon
+//    Copyright 2004,2005 Setasign - Jan Slabon
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -37,12 +37,12 @@ class pdf_context {
 	// pointer to a new location
 	// and reset the buffered data
 
-	function reset($pos = null) {
+	function reset($pos = null, $l = 100) {
 		if (!is_null ($pos)) {
 			fseek ($this->file, $pos);
 		}
 
-		$this->buffer = fread($this->file, 100);
+		$this->buffer = fread($this->file, $l);
 		$this->offset = 0;
 		$this->length = strlen($this->buffer);
 		$this->stack = array();
@@ -64,71 +64,15 @@ class pdf_context {
 
 	// Forcefully read more data into the buffer
 
-	function increase_length() {
+	function increase_length($l=100) {
 		if (feof($this->file)) {
 			return false;
 		} else {
-			$this->buffer .= fread($this->file, 100);
+			$this->buffer .= fread($this->file, $l);
 			$this->length = strlen($this->buffer);
 			return true;
 		}
 	}
 
-	/**
-     * Read a stream
-     */
-    function read_stream() {
-        static $a;
-
-        $o_pos = ftell($this->file)-strlen($this->buffer);
-        $o_offset = $this->offset;
-        
-        $this->reset($startpos = $o_pos + $o_offset);
-        $v = "";
-        $prev_buffer = "";
-        $tmp_start = 0;
-        
-        while (($endpos = strpos($prev_buffer.$this->buffer,"endstream")) === false) {
-            $prev_buffer = $this->buffer;
-            $v .= $this->buffer;
-            $tmp_start+=100;
-            $this->reset($startpos + $tmp_start);
-        }
-        $v .= $this->buffer;
-        
-        $v = substr($v,0,$tmp_start+$endpos-(strlen($prev_buffer)));
-
-        $e = strspn($v,"\r\n"); // ensure line breaks in front of the stream
-        $v = substr($v,$e,strlen($v));
-
-        $this->reset($p = $startpos+$tmp_start+$endpos-strlen($prev_buffer)+strlen("endstream")); // reset File after endstream-token
-
-        return $v;
-    }
-    
-    /**
-     * old... very slow!
-     *
-    function read_stream() {
-        $o_pos = ftell($this->file)-strlen($this->buffer);
-        $o_offset = $this->offset;
-
-        $tmp_offset = 0;
-
-        while(($endpos = strpos(substr($this->buffer,$this->offset,$this->length),"endstream")) == false) {
-            $this->increase_length();
-        }
-
-        $v = substr($this->buffer,$this->offset, $endpos);
-        $e = strspn($v,"\r\n"); // ensure line breaks in front of the stream
-        $v = substr($v,$e,strlen($v));
-
-        $this->reset($p = $o_pos+$o_offset+strlen($v)+$e+strlen("endstream")); // reset File after endstream-token
-
-        echo $p."<br>";
-        flush();
-
-        return $v;
-    }  */
 }
 ?>

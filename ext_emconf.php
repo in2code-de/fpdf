@@ -12,7 +12,7 @@
 
 $EM_CONF[$_EXTKEY] = array (
 	'title' => 'FPDF Library',
-	'description' => 'FPDF Library (www.fpdf.org) ported to TYPO3',
+	'description' => 'FPDF Library (www.fpdf.org) ported to TYPO3. Also includes the FPDI library (fpdi.setasign.de) which allows you to use PDF templates when creating your own PDF files.',
 	'category' => 'misc',
 	'shy' => '0',
 	'dependencies' => '',
@@ -20,7 +20,7 @@ $EM_CONF[$_EXTKEY] = array (
 	'priority' => '',
 	'loadOrder' => '',
 	'module' => '',
-	'state' => 'beta',
+	'state' => 'stable',
 	'uploadfolder' => '0',
 	'createDirs' => '',
 	'modify_tables' => '',
@@ -31,13 +31,13 @@ $EM_CONF[$_EXTKEY] = array (
 	'author_company' => '',
 	'CGLcompliance' => NULL,
 	'CGLcompliance_note' => NULL,
-	'version' => '0.0.1',
+	'version' => '0.1.0',
 	'constraints' => 
 	array (
 		'depends' => 
 		array (
-			'typo3' => '0.0.2-0.0.2',
-			'php' => '0.0.2-0.0.2',
+			'typo3' => '',
+			'php' => '',
 			'' => '',
 		),
 		'conflicts' => 

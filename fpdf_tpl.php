@@ -1,8 +1,8 @@
 <?php
 //
-//  fpdf_tpl - Version 1.0
+//  fpdf_tpl - Version 1.0.2
 //
-//    Copyright 2004 Setasign - Jan Slabon
+//    Copyright 2004,2005 Setasign - Jan Slabon
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -346,7 +346,7 @@ class fpdf_tpl extends fpdf {
     function SetLink($link,$y=0,$page=-1) {
         if ($this->intpl)
             $this->Error('Setting links in templates aren\'t possible!');
-        parent::SetLink($link,$y=0,$page=-1);
+        parent::SetLink($link,$y,$page);
     }
     
     /**

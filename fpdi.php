@@ -1,8 +1,8 @@
 <?php
 //
-//  FPDI - Version 1.01
+//  FPDI - Version 1.1
 //
-//    Copyright 2004 Setasign - Jan Slabon
+//    Copyright 2004,2005 Setasign - Jan Slabon
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -32,7 +32,8 @@ define ('PDF_TYPE_STREAM', 10);
 ini_set('auto_detect_line_endings',1); // Strongly required!
 
 require_once("fpdf_tpl.php");
-require_once("pdf_parser.php");
+require_once("fpdi_pdf_parser.php");
+
 
 class fpdi extends fpdf_tpl {
     /**
@@ -57,20 +58,32 @@ class fpdi extends fpdf_tpl {
      * FPDF/FPDI - PDF-Version
      * @var double
      */
-    var $pdfVersion = 1.3;
+    var $PDFVersion = 1.3;
 
     /**
      * Highest version of imported PDF
      * @var double
      */
-    var $importVersion;
+    var $importVersion = 1.3;
 
     /**
      * object stack
      * @var array
      */
+    var $obj_stack;
+    
+    /**
+     * done object stack
+     * @var array
+     */
     var $don_obj_stack;
 
+    /**
+     * Current Object Id.
+     * @var integer
+     */
+    var $current_obj_id;
+    
     /**
      * Constructor
      * See FPDF-Manual
@@ -89,7 +102,7 @@ class fpdi extends fpdf_tpl {
         $this->current_filename = $filename;
         $fn =& $this->current_filename;
 
-        $this->parsers[$fn] = new pdf_parser($fn,$this);
+        $this->parsers[$fn] = new fpdi_pdf_parser($fn,$this);
         $this->current_parser =& $this->parsers[$fn];
         
         return $this->parsers[$fn]->getPageCount();
@@ -113,7 +126,7 @@ class fpdi extends fpdf_tpl {
         $this->tpls[$this->tpl]['buffer'] = $this->parsers[$fn]->getContent();
         // $mediabox holds the dimensions of the source page
         $mediabox = $this->parsers[$fn]->getPageMediaBox($pageno);
-
+        
         // To build array that can used by pdf_tpl::useTemplate()
         $this->tpls[$this->tpl] = array_merge($this->tpls[$this->tpl],$mediabox);
 
@@ -130,13 +143,17 @@ class fpdi extends fpdf_tpl {
                 if (is_array($this->obj_stack[$filename])) {
                     while($n = key($this->obj_stack[$filename])) {
                         $nObj = $this->current_parser->pdf_resolve_object($this->current_parser->c,$this->obj_stack[$filename][$n][1]);
+						
                         $this->_newobj($this->obj_stack[$filename][$n][0]);
-                        if ($nObj[0] == PDF_TYPE_STREAM)
-                            $this->pdf_write_value ($nObj);
-                        else
+                        
+                        if ($nObj[0] == PDF_TYPE_STREAM) {
+							$this->pdf_write_value ($nObj);
+                        } else {
                             $this->pdf_write_value ($nObj[1]);
-
+                        }
+                        
                         $this->_out('endobj');
+                        $this->obj_stack[$filename][$n] = null; // free memory
                         unset($this->obj_stack[$filename][$n]);
                         reset($this->obj_stack[$filename]);
                     }
@@ -147,6 +164,7 @@ class fpdi extends fpdf_tpl {
     
     /**
      * Rewritten for handling own defined PDF-Versions
+     * only needed by FPDF 1.52
      */
     function _begindoc() {
     	//Start document
@@ -157,10 +175,12 @@ class fpdi extends fpdf_tpl {
      * Sets the PDF Version to the highest of imported documents
      */
     function setVersion() {
-        if ($this->importVersion > $this->pdfVersion)
-            $this->pdfVersion = $this->importVersion;
+        if ($this->importVersion > $this->PDFVersion)
+            $this->PDFVersion = $this->importVersion;
 
-        $this->buffer = '%PDF-'.$this->pdfVersion."\n".$this->buffer;
+        if (!method_exists($this, '_putheader')) {
+            $this->buffer = '%PDF-'.$this->PDFVersion."\n".$this->buffer;
+		}
     }
     
     /**
@@ -268,7 +288,9 @@ class fpdi extends fpdf_tpl {
         if (!$onlynewobj) {
             $this->offsets[$obj_id]=strlen($this->buffer);
             $this->_out($obj_id.' 0 obj');
+            $this->current_obj_id = $obj_id; // for later use with encryption
         }
+        
     }
 
     /**
@@ -286,7 +308,7 @@ class fpdi extends fpdf_tpl {
     		case PDF_TYPE_TOKEN :
                 // A numeric value or a token.
     			// Simply output them
-                $this->_out($value[1]);
+                $this->_out($value[1]." ");
     			break;
 
     		case PDF_TYPE_ARRAY :
@@ -294,10 +316,9 @@ class fpdi extends fpdf_tpl {
     			// An array. Output the proper
     			// structure and move on.
 
-    			$this->_out("[");
+    			$this->_out("[",false);
                 for ($i = 0; $i < count($value[1]); $i++) {
     				$this->pdf_write_value($value[1][$i]);
-    				$this->_out(' ');
     			}
 
     			$this->_out("]");
@@ -306,12 +327,12 @@ class fpdi extends fpdf_tpl {
     		case PDF_TYPE_DICTIONARY :
 
     			// A dictionary.
-    			$this->_out("<<");
+    			$this->_out("<<",false);
 
     			reset ($value[1]);
 
     			while (list($k, $v) = each($value[1])) {
-    				$this->_out($k . " ");
+    				$this->_out($k . " ",false);
     				$this->pdf_write_value($v);
     			}
 
@@ -329,7 +350,7 @@ class fpdi extends fpdf_tpl {
                 }
                 $objid = $this->don_obj_stack[$this->current_parser->filename][$value[1]][0];
 
-    			$this->_out("{$objid} {$value[2]} R");
+    			$this->_out("{$objid} 0 R"); //{$value[2]}
     			break;
 
     		case PDF_TYPE_STRING :
@@ -351,9 +372,7 @@ class fpdi extends fpdf_tpl {
     			break;
             case PDF_TYPE_HEX :
             
-                $this->_out("<");
-                $this->_out($value[1]);
-                $this->_out(">");
+                $this->_out("<" . $value[1] . ">");
                 break;
 
     		case PDF_TYPE_NULL :
@@ -362,6 +381,31 @@ class fpdi extends fpdf_tpl {
     			$this->_out("null");
     			break;
     	}
+    }
+    
+    
+    /**
+     * Private Method
+     */
+    function _out($s,$ln=true) {
+	   //Add a line to the document
+	   if ($this->state==2) {
+           if (!$this->intpl)
+	           $this->pages[$this->page].=$s.($ln == true ? "\n" : '');
+           else
+               $this->tpls[$this->tpl]['buffer'] .= $s.($ln == true ? "\n" : '');
+       } else {
+		   $this->buffer.=$s.($ln == true ? "\n" : '');
+       }
+    }
+
+    /**
+     * close all files opened by parsers
+     */
+    function closeParsers() {
+      	foreach ($this->parsers as $parser){
+        	$parser->closeFile();
+        }
     }
 
 }
