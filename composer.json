@@ -1,0 +1,10 @@
+{
+    "name": "in2code/fpdf",
+    "description": "FPDF fork for v8 compatibility",
+    "license": "GPL-2.0",
+    "type": "typo3-cms-extension",
+    "replace": {
+        "fpdf": "self.version",
+        "typo3-ter/fpdf": "self.version"
+    }
+}
