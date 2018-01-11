@@ -37,7 +37,7 @@
 * @author David Bruehlmeier <typo3@bruehlmeier.com>
 */
 
-require_once(t3lib_extMgm::extPath('fpdf').'fpdi.php');
+require_once(\TYPO3\CMS\Core\Utility\ExtensionManagementUtility::extPath('fpdf', 'fpdi.php'));
 
 class PDF extends FPDI	{
 
@@ -45,7 +45,7 @@ class PDF extends FPDI	{
 	var $outlines=array();
 	var $OutlineRoot;
 	var $angle=0;
-	
+
 	function Header()		{
 		if ($this->tx_fpdf->template)		{
 			$this->setSourceFile($this->tx_fpdf->template);
@@ -66,7 +66,7 @@ class PDF extends FPDI	{
 	    if($y==-1) $y=$this->GetY();
 	    $this->outlines[]=array('t'=>$txt, 'l'=>$level, 'y'=>($this->h-$y)*$this->k, 'p'=>$this->PageNo());
 	}
-	
+
 	/**
 	*
 	* BookmarkUTF8() - Adds bookmark support
@@ -94,7 +94,7 @@ class PDF extends FPDI	{
 	    $this->Cell(0,5,'Index',0,1,'C');
 	    $this->SetFontSize(15);
 	    $this->Ln(10);
-	
+
 	    $size=sizeof($this->outlines);
 	    $PageCellSize=$this->GetStringWidth('p. '.$this->outlines[$size-1]['p'])+2;
 	    for ($i=0;$i<$size;$i++){
@@ -102,7 +102,7 @@ class PDF extends FPDI	{
 	        $level=$this->outlines[$i]['l'];
 	        if($level>0)
 	            $this->Cell($level*8);
-	
+
 	        //Caption
 	        $str=$this->outlines[$i]['t'];
 	        $strsize=$this->GetStringWidth($str);
@@ -112,13 +112,13 @@ class PDF extends FPDI	{
 	            $strsize=$this->GetStringWidth($str);
 	        }
 	        $this->Cell($strsize+2,$this->FontSize+2,$str);
-	
+
 	        //Filling dots
 	        $w=$this->w-$this->lMargin-$this->rMargin-$PageCellSize-($level*8)-($strsize+2);
 	        $nb=$w/$this->GetStringWidth('.');
 	        $dots=str_repeat('.',$nb);
 	        $this->Cell($w,$this->FontSize+2,$dots,0,0,'R');
-	
+
 	        //Page number
 	        $this->Cell($PageCellSize,$this->FontSize+2,'p. '.$this->outlines[$i]['p'],0,1,'R');
 	    }
@@ -134,7 +134,7 @@ class PDF extends FPDI	{
 	*
 	*/
 	function Rotate($angle, $x=-1, $y=-1) {
-		if($x==-1) 
+		if($x==-1)
 			$x=$this->x;
 		if($y==-1)
 			$y=$this->y;
@@ -151,7 +151,7 @@ class PDF extends FPDI	{
 		}
 	}
 
-	
+
 	/**
 	*
 	* AddSpotColor() - Allows use of spot colors (Pantone) for use in professional printing.
@@ -181,7 +181,7 @@ class PDF extends FPDI	{
 	*
 	* With 2 parameters:
 	* @param	string	spotcolor: spotcolor name.
-	* @param	int		tint: intensity of the color (100 by default, i.e. full intensity). 
+	* @param	int		tint: intensity of the color (100 by default, i.e. full intensity).
 	*
 	* With 3 parameters:
 	* @param	int		r: RGB colordefinition red.
@@ -231,7 +231,7 @@ class PDF extends FPDI	{
     }
 
     function SetFillColor() {
-    	
+
         //Set color for all filling operations
         switch(func_num_args()) {
             case 1:
@@ -383,7 +383,7 @@ class PDF extends FPDI	{
 	    return $s;
 	}
 
-	
+
 	function _putcolorresourcedict() {
 		if (count($this->SpotColors)) {
 			$this->_out('/ColorSpace <<');
@@ -412,7 +412,7 @@ class PDF extends FPDI	{
 		$this->_out('>>');
 		$this->_out('endobj');
 	}
-	
+
 
 	function _endpage() {
 	    if ($this->angle!=0) {

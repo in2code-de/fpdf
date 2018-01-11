@@ -22,13 +22,13 @@
 *  This copyright notice MUST APPEAR in all copies of the script!
 ***************************************************************/
 
-require_once(t3lib_extMgm::extPath('fpdf').'class.tx_fpdf.php');
+require_once(\TYPO3\CMS\Core\Utility\ExtensionManagementUtility::extPath('fpdf', 'class.tx_fpdf.php'));
 
 /**
  * FPDF and FPDI testcases
- * 
+ *
  * WARNING!!: Never ever run a unit test like this on a live site!!
- *         
+ *
  *
  * @author	David Bruehlmeier <typo3@bruehlmeier.com>
  */
@@ -46,8 +46,8 @@ class tx_fpdf_testcase extends tx_t3unit_testcase {
 		$format = 'A4';
 		$font = 'courier';
 		$fontSize = 12;
-		$filePath = t3lib_extMgm::extPath('fpdf').'tests/results/test_createBasicPDF_'.time().'.pdf';
-		
+        $filePath = \TYPO3\CMS\Core\Utility\ExtensionManagementUtility::extPath('fpdf', 'tests/results/test_createBasicPDF_'.time().'.pdf');
+
 		$pdf = new PDF($orientation, $unit, $format);
 		$pdf->SetMargins(10, 10, 10);
 		$pdf->AddPage();
@@ -57,19 +57,19 @@ class tx_fpdf_testcase extends tx_t3unit_testcase {
 		$pdf->AddPage();
 		$pdf->Write(20, 'Second page.');
 		$pdf->Output($filePath);
-		
+
 		self::assertTrue(is_file($filePath));
 	}
-	
+
 	public function test_createPDFwithTemplate() {
 		$orientation = 'portrait';
 		$unit = 'mm';
 		$format = 'A4';
 		$font = 'times';
 		$fontSize = 12;
-		$filePath = t3lib_extMgm::extPath('fpdf').'tests/results/test_createPDFwithTemplate_'.time().'.pdf';
-		$templatePath = t3lib_extMgm::extPath('fpdf').'tests/TYPO3.pdf';
-		
+        $filePath = \TYPO3\CMS\Core\Utility\ExtensionManagementUtility::extPath('fpdf', 'tests/results/test_createPDFwithTemplate_'.time().'.pdf');
+        $templatePath = \TYPO3\CMS\Core\Utility\ExtensionManagementUtility::extPath('fpdf', 'tests/TYPO3.pdf');
+
 		$pdf = new PDF($orientation, $unit, $format);
 		$pdf->tx_fpdf->template = $templatePath;
 		$pdf->SetMargins(10, 10, 10);
@@ -80,7 +80,7 @@ class tx_fpdf_testcase extends tx_t3unit_testcase {
 		$pdf->AddPage();
 		$pdf->Write(20, 'Second page.');
 		$pdf->Output($filePath);
-		
+
 		self::assertTrue(is_file($filePath));
 	}
 
