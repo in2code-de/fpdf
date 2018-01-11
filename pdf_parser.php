@@ -108,7 +108,7 @@ class pdf_parser
      *
      * @param string $filename Source-Filename
      */
-    function pdf_parser($filename)
+    function __construct($filename)
     {
         $this->filename = $filename;
 

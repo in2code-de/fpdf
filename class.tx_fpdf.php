@@ -68,7 +68,7 @@ class PDF extends FPDI
      *     position. Default value: 0.
      *
      */
-    function Bookmark($txt, $level = 0, $y = 0)
+    function Bookmark($txt, $level=0, $y=-1, $page='', $style='', $color=array(0,0,0), $x=-1, $link='')
     {
         if ($y == -1) {
             $y = $this->GetY();
@@ -237,7 +237,7 @@ class PDF extends FPDI
      *  SetFillColor and SetTextColor same as SetDrawColor
      *
      */
-    function SetDrawColor()
+    function SetDrawColor($col1=0, $col2=-1, $col3=-1, $col4=-1, $ret=false, $name='')
     {
 
         //Set color for all stroking operations
@@ -272,7 +272,7 @@ class PDF extends FPDI
         }
     }
 
-    function SetFillColor()
+    function SetFillColor($col1=0, $col2=-1, $col3=-1, $col4=-1, $ret=false, $name='')
     {
 
         //Set color for all filling operations
@@ -308,7 +308,7 @@ class PDF extends FPDI
         }
     }
 
-    function SetTextColor()
+    function SetTextColor($col1=0, $col2=-1, $col3=-1, $col4=-1, $ret=false, $name='')
     {
 
         //Set color for text
