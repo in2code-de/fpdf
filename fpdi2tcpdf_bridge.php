@@ -21,14 +21,15 @@
  * This class is used as a bridge between TCPDF and FPDI
  * and will create the possibility to use both FPDF and TCPDF
  * via one FPDI version.
- * 
+ *
  * We'll simply remap TCPDF to FPDF again.
- * 
+ *
  * It'll be loaded and extended by FPDF_TPL.
  */
-class FPDF extends TCPDF {
-    
-    function __get($name) {
+class FPDF extends TCPDF
+{
+    function __get($name)
+    {
         switch ($name) {
             case 'PDFVersion':
                 return $this->PDFVersion;
@@ -36,18 +37,37 @@ class FPDF extends TCPDF {
                 return $this->k;
             default:
                 // Error handling
-                $this->Error('Cannot access protected property '.get_class($this).':$'.$name.' / Undefined property: '.get_class($this).'::$'.$name);
+                $this->Error(
+                    'Cannot access protected property '
+                    . get_class($this)
+                    . ':$'
+                    . $name
+                    . ' / Undefined property: '
+                    . get_class($this)
+                    . '::$'
+                    . $name
+                );
         }
     }
 
-    function __set($name, $value) {
+    function __set($name, $value)
+    {
         switch ($name) {
             case 'PDFVersion':
                 $this->PDFVersion = $value;
                 break;
             default:
                 // Error handling
-                $this->Error('Cannot access protected property '.get_class($this).':$'.$name.' / Undefined property: '.get_class($this).'::$'.$name);
+                $this->Error(
+                    'Cannot access protected property '
+                    . get_class($this)
+                    . ':$'
+                    . $name
+                    . ' / Undefined property: '
+                    . get_class($this)
+                    . '::$'
+                    . $name
+                );
         }
     }
 
@@ -56,44 +76,46 @@ class FPDF extends TCPDF {
      *
      * @param array $value
      */
-    function pdf_write_value(&$value) {
+    function pdf_write_value(&$value)
+    {
         switch ($value[0]) {
-    		case PDF_TYPE_STRING :
-				if ($this->encrypted) {
-				    $value[1] = $this->_unescape($value[1]);
+            case PDF_TYPE_STRING :
+                if ($this->encrypted) {
+                    $value[1] = $this->_unescape($value[1]);
                     $value[1] = $this->_RC4($this->_objectkey($this->_current_obj_id), $value[1]);
-                 	$value[1] = $this->_escape($value[1]);
-                } 
-    			break;
-    			
-			case PDF_TYPE_STREAM :
-			    if ($this->encrypted) {
-			        $value[2][1] = $this->_RC4($this->_objectkey($this->_current_obj_id), $value[2][1]);
+                    $value[1] = $this->_escape($value[1]);
                 }
                 break;
-                
+
+            case PDF_TYPE_STREAM :
+                if ($this->encrypted) {
+                    $value[2][1] = $this->_RC4($this->_objectkey($this->_current_obj_id), $value[2][1]);
+                }
+                break;
+
             case PDF_TYPE_HEX :
-            	if ($this->encrypted) {
-                	$value[1] = $this->hex2str($value[1]);
-                	$value[1] = $this->_RC4($this->_objectkey($this->_current_obj_id), $value[1]);
-                    
-                	// remake hexstring of encrypted string
-    				$value[1] = $this->str2hex($value[1]);
+                if ($this->encrypted) {
+                    $value[1] = $this->hex2str($value[1]);
+                    $value[1] = $this->_RC4($this->_objectkey($this->_current_obj_id), $value[1]);
+
+                    // remake hexstring of encrypted string
+                    $value[1] = $this->str2hex($value[1]);
                 }
                 break;
-    	}
+        }
     }
-    
+
     /**
      * Unescapes a PDF string
      *
      * @param string $s
      * @return string
      */
-    function _unescape($s) {
+    function _unescape($s)
+    {
         $out = '';
         for ($count = 0, $n = strlen($s); $count < $n; $count++) {
-            if ($s[$count] != '\\' || $count == $n-1) {
+            if ($s[$count] != '\\' || $count == $n - 1) {
                 $out .= $s[$count];
             } else {
                 switch ($s[++$count]) {
@@ -118,27 +140,28 @@ class FPDF extends TCPDF {
                         $out .= chr(0x0A);
                         break;
                     case "\r":
-                        if ($count != $n-1 && $s[$count+1] == "\n")
+                        if ($count != $n - 1 && $s[$count + 1] == "\n") {
                             $count++;
+                        }
                         break;
                     case "\n":
                         break;
                     default:
                         // Octal-Values
-                        if (ord($s[$count]) >= ord('0') &&
-                            ord($s[$count]) <= ord('9')) {
-                            $oct = ''. $s[$count];
-                                
-                            if (ord($s[$count+1]) >= ord('0') &&
-                                ord($s[$count+1]) <= ord('9')) {
+                        if (ord($s[$count]) >= ord('0')
+                            && ord($s[$count]) <= ord('9')) {
+                            $oct = '' . $s[$count];
+
+                            if (ord($s[$count + 1]) >= ord('0')
+                                && ord($s[$count + 1]) <= ord('9')) {
                                 $oct .= $s[++$count];
-                                
-                                if (ord($s[$count+1]) >= ord('0') &&
-                                    ord($s[$count+1]) <= ord('9')) {
-                                    $oct .= $s[++$count];    
-                                }                            
+
+                                if (ord($s[$count + 1]) >= ord('0')
+                                    && ord($s[$count + 1]) <= ord('9')) {
+                                    $oct .= $s[++$count];
+                                }
                             }
-                            
+
                             $out .= chr(octdec($oct));
                         } else {
                             $out .= $s[$count];
@@ -148,24 +171,26 @@ class FPDF extends TCPDF {
         }
         return $out;
     }
-    
+
     /**
      * Hexadecimal to string
      *
      * @param string $hex
      * @return string
      */
-    function hex2str($hex) {
-    	return pack('H*', str_replace(array("\r", "\n", ' '), '', $hex));
+    function hex2str($hex)
+    {
+        return pack('H*', str_replace(array("\r", "\n", ' '), '', $hex));
     }
-    
+
     /**
      * String to hexadecimal
      *
      * @param string $str
      * @return string
      */
-    function str2hex($str) {
+    function str2hex($str)
+    {
         return current(unpack('H*', $str));
     }
 }
