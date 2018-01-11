@@ -157,7 +157,7 @@ function FPDF($orientation='P', $unit='mm', $format='A4')
 	$this->SetCompression(true);
 	//Set default PDF version number
 	$this->PDFVersion='1.3';
-	
+
 		// David Bruehlmeier (dbruehlmeier), typo3@bruehlmeier.com: Added 2009-05-20
 		// Checks if other TYPO3-extensions wish to include fonts. If so, they are included
 		// by calling $this->AddFont, using the additional parameter $pathAndFile
@@ -480,7 +480,7 @@ function AddFont($family,$style='',$file='',$pathAndFile='')
 	$fontkey=$family.$style;
 	if(isset($this->fonts[$fontkey]))
 		return;
-		
+
 		// David Bruehlmeier (dbruehlmeier), typo3@bruehlmeier.com: Added 2009-05-20
 		// Check for $pathAndFile. If set, load to the file definition from there. If not,
 		// go for the regular way in FPDF.
@@ -489,7 +489,7 @@ function AddFont($family,$style='',$file='',$pathAndFile='')
 	} else {
 		include($this->_getfontpath().$file);
 	}
-	
+
 	if(!isset($name))
 		$this->Error('Could not include font definition file');
 	$i=count($this->fonts)+1;
@@ -1485,7 +1485,7 @@ function _putfonts()
 		$this->_newobj();
 		$this->FontFiles[$file]['n']=$this->n;
 		$font='';
-		
+
 			// David Bruehlmeier (dbruehlmeier), typo3@bruehlmeier.com: Added 2009-05-20
 			// If the font to be included is a font from a TYPO3-extension, get the file path
 			// as defined by the extension.
@@ -1494,7 +1494,7 @@ function _putfonts()
 		} else {
 			$f=fopen($this->_getfontpath().$file,'rb',1);
 		}
-		
+
 		if(!$f)
 			$this->Error('Font file not found');
 		while(!feof($f))
@@ -1762,5 +1762,3 @@ if(isset($_SERVER['HTTP_USER_AGENT']) && $_SERVER['HTTP_USER_AGENT']=='contype')
 	header('Content-Type: application/pdf');
 	exit;
 }
-
-?>

@@ -85,5 +85,3 @@ class tx_fpdf_testcase extends tx_t3unit_testcase {
 	}
 
 }
-
-?>
